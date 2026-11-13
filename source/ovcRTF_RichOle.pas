@@ -32,12 +32,18 @@
 
 unit ovcRTF_RichOle;
 
-{$WEAKPACKAGEUNIT}
-{$MINENUMSIZE 4}
-
 interface
 
-{$IFDEF WIN32}
+
+{$IFNDEF BCB}
+  {$WEAKPACKAGEUNIT}
+{$ELSE}
+  {$IFNDEF CPU64BITS}
+    {$WEAKPACKAGEUNIT} // This breaks the ilink64
+  {$ENDIF}
+{$ENDIF}
+
+{$MINENUMSIZE 4}
 
 uses
   Windows, ActiveX, RichEdit;
@@ -212,33 +218,27 @@ type
       const chrg: TCharRange; var menu: HMENU): HRESULT; stdcall;
   end;
 
-const
-  IID_IRichEditOle: TGUID = '{00020D00-0000-0000-C000-000000000046}';
-  IID_IRichEditOleCallback: TGUID = '{00020D03-0000-0000-C000-000000000046}';
-
 {$IFDEF CPPBUILDER}{$EXTERNALSYM RichEdit_SetOleCallback}{$ENDIF}
 function RichEdit_SetOleCallback(Wnd: HWND;
   const Intf: IRichEditOleCallback): Boolean;
 {$IFDEF CPPBUILDER}{$EXTERNALSYM RichEdit_GetOleInterface}{$ENDIF}
 function RichEdit_GetOleInterface(Wnd: HWND; out Intf: IRichEditOle): Boolean;
 
-{$ENDIF}
-
 implementation
 
-{$IFDEF WIN32}
+const
+  IID_IRichEditOle: TGUID = '{00020D00-0000-0000-C000-000000000046}';
+  IID_IRichEditOleCallback: TGUID = '{00020D03-0000-0000-C000-000000000046}';
 
 function RichEdit_SetOleCallback(Wnd: HWND;
   const Intf: IRichEditOleCallback): Boolean;
 begin
-  Result := SendMessage(Wnd, EM_SETOLECALLBACK, 0, NativeInt(Intf)) <> 0;
+  Result := SendMessage(Wnd, EM_SETOLECALLBACK, 0, LPARAM(Intf)) <> 0;
 end;
 
 function RichEdit_GetOleInterface(Wnd: HWND; out Intf: IRichEditOle): Boolean;
 begin
-  Result := SendMessage(Wnd, EM_GETOLEINTERFACE, 0, NativeInt(@Intf)) <> 0;
+  Result := SendMessage(Wnd, EM_GETOLEINTERFACE, 0, LPARAM(@Intf)) <> 0;
 end;
-
-{$ENDIF}
 
 end.

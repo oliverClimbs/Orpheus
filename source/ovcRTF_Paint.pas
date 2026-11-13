@@ -19,8 +19,6 @@ unit ovcRTF_Paint;
 
 interface
 
-{$IFDEF WIN32}
-
 uses Windows, Graphics, ovcRTF_TOM, ovcRTF_IText;
 
 // The RTF parameter should be a string containing a full RTF document. It
@@ -42,11 +40,7 @@ type
     function GetDrawExtent(Canvas: TCanvas; DrawWidth: Integer): TSize;
   end;
 
-{$ENDIF}
-
 implementation
-
-{$IFDEF WIN32}
 
 uses Types, SysUtils, ComObj, ActiveX, RichEdit, Messages;
 
@@ -119,7 +113,7 @@ begin
   Cookie.dwCount := 0;
   Cookie.dwSize := Length(RTF);
   Cookie.Text := PChar(RTF);
-  Stream.dwCookie := Integer(@Cookie);
+  Stream.dwCookie := DWORD_PTR(@Cookie);
   Stream.dwError := 0;
   Stream.pfnCallback := EditStreamInCallback;
   OleCheck(Services.TxSendMessage(em_StreamIn, sf_RTF or sff_PlainRTF, lParam(@Stream), res));
@@ -326,7 +320,5 @@ function TOvcRTFPainter.GetDrawHeight(Canvas: TCanvas; DrawWidth: Integer): Inte
 begin
   Result := GetDrawExtent(Canvas, DrawWidth).cy;
 end;
-
-{$ENDIF}
 
 end.

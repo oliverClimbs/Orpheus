@@ -1235,10 +1235,10 @@ begin
       tbSetFocus(tbActiveCell.EditHandle);
 
       if not (tbActiveCell is TOvcTCComboBox) then
-        PostMessage(tbActiveCell.EditHandle, WM_LBUTTONDOWN, Msg.Keys, Integer(Msg.Pos))
+        PostMessage(tbActiveCell.EditHandle, WM_LBUTTONDOWN, Msg.Keys, LPARAM(Integer(Msg.Pos)))
       else if (tbActiveCell is TOvcTCComboBox) then begin
         if TOvcTCComboBox(tbActiveCell).Style <> csDropDownList then
-          PostMessage(tbActiveCell.EditHandle, WM_LBUTTONDOWN, Msg.Keys, Integer(Msg.Pos));
+          PostMessage(tbActiveCell.EditHandle, WM_LBUTTONDOWN, Msg.Keys, LPARAM(Integer(Msg.Pos)));
       end;
 
     end;
@@ -1933,7 +1933,7 @@ begin
     ValidateRect(Handle, @CR);
 
     {validate area occupied by combobox list}
-    SendMessage(tbActiveCell.EditHandle, CB_GETDROPPEDCONTROLRECT, 0, NativeInt(@CR));
+    SendMessage(tbActiveCell.EditHandle, CB_GETDROPPEDCONTROLRECT, 0, LPARAM(@CR));
     CR.TopLeft := ScreenToClient(CR.TopLeft);
     CR.BottomRight := ScreenToClient(CR.BottomRight);
     ValidateRect(Handle, @CR);
@@ -4291,17 +4291,16 @@ begin
         PCellComboBoxInfo(Data)^.Index := AField.AsInteger;
         PCellComboBoxInfo(Data)^.St := '';
       end else begin
-        PString(Data)^ := AField.Text;
-        if PString(Data)^ = '' then
+        if AField.Text = '' then
           Idx := -1
         else
-          Idx := TOvcTCComboBox(ACell).Items.IndexOf(PString(Data)^);
+          Idx := TOvcTCComboBox(ACell).Items.IndexOf(AField.Text);
 
         PCellComboBoxInfo(Data)^.Index := Idx;
 
         if Idx = -1 then
           if TOvcTCComboBox(ACell).Style in [csDropDown, csSimple] then
-            PCellComboBoxInfo(Data)^.St := PString(Data)^ //S;
+            PCellComboBoxInfo(Data)^.St := AField.Text;
       end;
 
       Exit;
@@ -5334,7 +5333,7 @@ begin
           R.BottomRight := ScreenToClient(R.BottomRight);
           ValidateRect(Handle, @R);
 
-          SendMessage(Msg.lParam, CB_GETDROPPEDCONTROLRECT, 0, NativeInt(@R));
+          SendMessage(Msg.lParam, CB_GETDROPPEDCONTROLRECT, 0, LPARAM(@R));
           {validate area occupied by combobox list}
           R.TopLeft := ScreenToClient(R.TopLeft);
           R.BottomRight := ScreenToClient(R.BottomRight);
@@ -5545,7 +5544,7 @@ begin
   if Region = (otrInMain) then begin
     SetActiveCell(Row, Col);
     PostMessage(Handle, ctim_StartEdit, 0, 0);
-    PostMessage(Handle, ctim_StartEditMouse, Msg.Keys, Integer(Msg.Pos));
+    PostMessage(Handle, ctim_StartEditMouse, Msg.Keys, LPARAM(Integer(Msg.Pos)));
   end;
 
   inherited;
@@ -5641,10 +5640,10 @@ begin
           if not (dtoAlwaysEditing in Options) and (ActiveRow = Row) and
              (ActiveColumn = Col) and WasFocused then begin
             PostMessage(Handle, ctim_StartEdit, 0, 0);
-            PostMessage(Handle, ctim_StartEditMouse, Msg.Keys, Integer(Msg.Pos));
+            PostMessage(Handle, ctim_StartEditMouse, Msg.Keys, LPARAM(Integer(Msg.Pos)));
           end else if (dtoAlwaysEditing in Options) then begin
             PostMessage(Handle, ctim_StartEdit, 0, 0);
-            PostMessage(Handle, ctim_StartEditMouse, Msg.Keys, Integer(Msg.Pos));
+            PostMessage(Handle, ctim_StartEditMouse, Msg.Keys, LPARAM(Integer(Msg.Pos)));
           end;
 
           SetActiveCell(Row, Col);

@@ -938,9 +938,13 @@ procedure TOvcCustomTable.CreateWnd;
 {--------}
 
 procedure TOvcCustomTable.Loaded;
-  begin
-    inherited Loaded;
-  end;
+const
+  cDefPPI = 96;
+begin
+  if not (csDesigning in ComponentState) then
+    ChangeScale(Screen.PixelsPerInch, cDefPPI);
+  inherited Loaded;
+end;
 
 {==TOvcTable property streaming routines=============================}
 
@@ -5867,8 +5871,8 @@ procedure TOvcCustomTable.WMLButtonDblClk(var Msg : TWMMouse);
             if FActiveRow <> Row then
               ActiveRow := Row;
 //Ende
-            PostMessage(Handle, ctim_StartEdit, Msg.Keys, Integer(Msg.Pos));
-            PostMessage(Handle, ctim_StartEditMouse, Msg.Keys, Integer(Msg.Pos));
+            PostMessage(Handle, ctim_StartEdit, Msg.Keys, LPARAM(Integer(Msg.Pos)));
+            PostMessage(Handle, ctim_StartEditMouse, Msg.Keys, LPARAM(Integer(Msg.Pos)));
           end;
       end;
   end;
@@ -5998,7 +6002,7 @@ procedure TOvcCustomTable.WMLButtonDown(var Msg : TWMMouse);
                           begin
                             PostMessage(Handle, ctim_StartEdit, 0, 0);
                             PostMessage(Handle, ctim_StartEditMouse,
-                                        Msg.Keys, Integer(Msg.Pos));
+                                        Msg.Keys, LPARAM(Integer(Msg.Pos)));
                             AllowDrag := false;
                           end;
                       end;
@@ -6094,7 +6098,7 @@ procedure TOvcCustomTable.WMLButtonDown(var Msg : TWMMouse);
                   if (not (otoAlwaysEditing in Options)) and (ActiveRow = Row) and (ActiveCol = Col) and (not WasUnfocused) then
                   begin
                     PostMessage(Handle, ctim_StartEdit, 0, 0);
-                    PostMessage(Handle, ctim_StartEditMouse, Msg.Keys, Integer(Msg.Pos));
+                    PostMessage(Handle, ctim_StartEditMouse, Msg.Keys, LPARAM(Integer(Msg.Pos)));
                   end;
 
                   tbSetActiveCellPrim(Row, Col);

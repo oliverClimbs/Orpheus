@@ -641,7 +641,7 @@ type
 implementation
 
 uses
-  Types;
+  Types, Math;
 
 {*** TOvcEfColors ***}
 
@@ -936,7 +936,7 @@ procedure TOvcBaseEntryField.CreateParams(var Params : TCreateParams);
 begin
   inherited CreateParams(Params);
 
-  Params.Style := Integer(Params.Style) or BorderStyles[FBorderStyle];
+  Params.Style := DWORD(Params.Style) or DWORD(BorderStyles[FBorderStyle]);
 
   if NewStyleControls and Ctl3D and (FBorderStyle = bsSingle) then begin
     Params.Style := Params.Style and not WS_BORDER;
@@ -1274,7 +1274,7 @@ begin
 
         {report the error}
         if not Controller.ErrorPending then
-          PostMessage(Handle, om_ReportError, FLastError, 0);
+          PostMessage(Handle, OM_REPORTERROR, WPARAM(FLastError), 0);
 
         {set controller's error pending flag}
         Controller.ErrorPending := True;
@@ -1720,6 +1720,7 @@ begin
     fsubComp     : efDataSize := SizeOf(Comp);
     fsubDate     : efDataSize := SizeOf(TStDate);
     fsubTime     : efDataSize := SizeOf(TStTime);
+    fsubDateTime : efDataSize := SizeOf(TDateTime);
   else
     efDataSize := 0;
   end;
@@ -2309,7 +2310,7 @@ begin
     R := Rect(0, 0, RightBdr + 1, ClientHeight);
   end;
 
-  SendMessage(Handle, EM_SETRECTNP, 0, NativeInt(@R));   //SZ: According to the Windows SDK, this is only processed by multi line edits. Why do we need it here? It was introduced with the IME changes
+  SendMessage(Handle, EM_SETRECTNP, 0, LPARAM(@R));   //SZ: According to the Windows SDK, this is only processed by multi line edits. Why do we need it here? It was introduced with the IME changes
   SendMessage(Handle, EM_SCROLLCARET, 0, 0);
   if SysLocale.FarEast {and (IMEMode <> imDisable)} then
     SetImeCompositionWindow(Font, efCaret.Position.X,efCaret.Position.Y);
@@ -2419,7 +2420,7 @@ begin
         Result := ExtendedToString(Ex, D);
       end;
     fsubExtended, fsubDouble, fsubSingle, fsubComp :
-      Result := ExtendedToString(Value.rtExt, D);
+      Result := ExtendedToString(Value.Ext, D);
     fsubDate :
       begin
         DateMask := OvcIntlSup.InternationalDate(True);
@@ -2435,6 +2436,16 @@ begin
           Result := ''
         else
           Result := OvcIntlSup.TimeToTimeString(TimeMask, Value.rtTime, False);
+      end;
+    fsubDateTime :
+      begin
+        DateMask  := IntlSupport.InternationalDate(True)
+                     + ' '
+                     + IntlSupport.InternationalTime(False);
+        if Value.rtDbl = 0 then
+          Result := ''
+        else
+          Result := IntlSupport.DateTimeToDate(DateMask, Value.rtDbl, False);
       end;
   end;
 end;
@@ -2488,7 +2499,7 @@ begin
             Exclude(FOptions, efoTrimBlanks);
             Exclude(FOptions, efoStripLiterals);
           end;
-        fsubDate, fsubTime :
+        fsubDate, fsubTime, fSubDateTime :
           begin
             Exclude(FOptions, efoTrimBlanks);
             Exclude(FOptions, efoRightJustify);
@@ -2597,26 +2608,30 @@ begin
 {$IFNDEF WIN64}
     fsubExtended :
       begin
-        efRangeLo.rtExt := -1.1e+4932;
-        efRangeHi.rtExt := +1.1e+4932;
+        efRangeLo.Ext := -1.1e+4932;
+        efRangeHi.Ext := +1.1e+4932;
       end;
 {$ELSE}
-    fsubExtended,
+    fsubExtended :
+      begin
+        efRangeLo.Ext := -1.7e+308;
+        efRangeHi.Ext := +1.7e+308;
+      end;
 {$ENDIF}
     fsubDouble :
       begin
-        efRangeLo.rtExt := -1.7e+308;
-        efRangeHi.rtExt := +1.7e+308;
+        efRangeLo.Ext := -1.7e+308;
+        efRangeHi.Ext := +1.7e+308;
       end;
     fsubSingle :
       begin
-        efRangeLo.rtExt := -3.4e+38;
-        efRangeHi.rtExt := +3.4e+38;
+        efRangeLo.Ext := -3.4e+38;
+        efRangeHi.Ext := +3.4e+38;
       end;
     fsubComp :
       begin
-        efRangeLo.rtExt := -9.2e+18;
-        efRangeHi.rtExt := +9.2e+18;
+        efRangeLo.Ext := -9.2e+18;
+        efRangeHi.Ext := +9.2e+18;
       end;
     fsubDate :
       begin
@@ -2627,6 +2642,11 @@ begin
       begin
         efRangeLo.rtTime := MinTime;
         efRangeHi.rtTime := MaxTime;
+      end;
+    fsubDateTime :
+      begin
+        efRangeLo.rtDbl := 0;
+        efRangeHi.rtDbl := 0;
       end;
   end;
 end;
@@ -2655,15 +2675,16 @@ begin
       if (0 < efRangeLo.rtReal) or (0 > efRangeHi.rtReal) then
         R.rtReal := efRangeLo.rtReal;
     fsubExtended, fsubDouble, fsubSingle, fsubComp :
-      if (0 < efRangeLo.rtExt) or (0 > efRangeHi.rtExt) then
+      if (0 < efRangeLo.Ext) or (0 > efRangeHi.Ext) then
         case FST of
           fsubExtended : R.rtExt  := efRangeLo.rtExt;
-          fsubDouble   : R.rtDbl  := efRangeLo.rtExt;
-          fsubSingle   : R.rtSgl  := efRangeLo.rtExt;
-          fsubComp     : R.rtComp := efRangeLo.rtExt;
+          fsubDouble   : R.rtDbl  := efRangeLo.Ext;
+          fsubSingle   : R.rtSgl  := efRangeLo.Ext;
+          fsubComp     : R.rtComp := efRangeLo.Ext;
         end;
     fsubDate : R.rtDate := BadDate;
     fsubTime : R.rtTime := BadTime;
+    fsubDateTime : R.rtDbl := 0;
   end;
   efTransfer(@R, otf_SetData);
 end;
@@ -2726,7 +2747,7 @@ begin
 
     {check for special value the Val() doesn't handle correctly}
     if StrComp(S, '-2147483648') = 0 then
-      L := Integer($80000000)
+      L := NativeInt($80000000)
     else
       Result := StrToLongPChar(S, L);
   end;
@@ -2741,6 +2762,9 @@ var
   Buf      : TEditString;
   DateMask : string;
   TimeMask : string;
+  Buffer   : Extended;
+  D        : TStDate;
+  T        : TStTime;
 begin
   Code := 0;  {assume success}
   R := BlankRange;
@@ -2787,15 +2811,18 @@ begin
     fsubExtended, fsubDouble, fsubSingle, fsubComp :
       begin
         if Value = '' then
-          R.rtExt := 0
+          R.Ext := 0
         else
-          Val(Value, R.rtExt, Code);
+        begin
+          Val(Value, Buffer, Code);
+          R.Ext := Buffer;
+        end;
         if (Code = 0) then begin
-          if (fSub = fsubDouble) and ((R.rtExt < -1.7e+308) or (R.rtExt > +1.7e+308)) then
+          if (fSub = fsubDouble) and ((R.Ext < -1.7e+308) or (R.Ext > +1.7e+308)) then
             Code := 1
-          else if (fSub = fsubSingle) and ((R.rtExt < -3.4e+38) or (R.rtExt > +3.4e+38)) then
+          else if (fSub = fsubSingle) and ((R.Ext < -3.4e+38) or (R.Ext > +3.4e+38)) then
             Code := 1
-          else if (fSub = fsubComp) and ((R.rtExt < -9.2e+18) or (R.rtExt > +9.2e+18)) then
+          else if (fSub = fsubComp) and ((R.Ext < -9.2e+18) or (R.Ext > +9.2e+18)) then
             Code := 1;
         end;
       end;
@@ -2819,6 +2846,22 @@ begin
         if R.rtTime = BadTime then
           Code := 1;
       end;
+    fsubDateTime :
+      begin
+        DateMask  := IntlSupport.InternationalDate(True)
+                     + ' '
+                     + IntlSupport.InternationalTime(False);
+        if Length(Value) <> Length(DateMask) then
+          Code := 1
+        else begin
+          D := IntlSupport.DateStringToDate(DateMask, Value, GetEpoch);
+          T := IntlSupport.TimeStringToTime(DateMask, Value);
+          if (D = BadDate) or (T = BadTime) then
+             Code := 1
+          else
+             R.rtDbl := OvcDate.StDateToDateTime(D) + OvcDate.StTimeToDateTime(T);
+        end;
+      end;
   end;
   Result := Code = 0;
 end;
@@ -2827,12 +2870,42 @@ procedure TOvcBaseEntryField.efReadRangeHi(Stream : TStream);
   {-called to read the high range from the stream}
 begin
   Stream.Read(efRangeHi, SizeOf(TRangeType));
+{$IFDEF WIN64}
+  if (efDataType mod fcpDivisor) = fsubExtended then
+  begin
+    try
+      efRangeHi.Ext := Min(efRangeHi.Ext, +1.7e+308);
+    except
+      on E: EOverflow do
+        efRangeHi.Ext := +1.7e+308;
+    end;
+  end
+  else if (efDataType mod fcpDivisor) in [fsubInteger, fsubShortInt] then
+      efRangeHi.rtLong := efRangeHi.rtInt
+  else if (efDataType mod fcpDivisor) = fsubLongInt then
+    efRangeHi.rtLong := efRangeHi.rtDate;
+{$ENDIF}
 end;
 
 procedure TOvcBaseEntryField.efReadRangeLo(Stream : TStream);
   {-called to read the low range from the stream}
 begin
   Stream.Read(efRangeLo, SizeOf(TRangeType));
+{$IFDEF WIN64}
+  if (efDataType mod fcpDivisor) = fsubExtended then
+  begin
+    try
+      efRangeLo.Ext := Max(efRangeLo.Ext, -1.7e+308);
+    except
+      on E: EOverflow do
+        efRangeLo.Ext := -1.7e+308;
+    end
+  end
+  else if (efDataType mod fcpDivisor) in [fsubInteger, fsubShortInt] then
+      efRangeLo.rtLong := efRangeLo.rtInt
+  else if (efDataType mod fcpDivisor) = fsubLongInt then
+    efRangeLo.rtLong := efRangeLo.rtDate;
+{$ENDIF}
 end;
 
 function TOvcBaseEntryField.efTransfer(DataPtr : Pointer; TransferFlag : Word) : Word;
@@ -3003,7 +3076,7 @@ begin
         else
           Result := StTimeToDateTime(T);
       end;
-    fsubDouble : { TDateTime }
+    fsubDateTime :
       begin
         FLastError := GetValue(DT);
         if FLastError <> 0 then
@@ -3438,7 +3511,7 @@ begin
       fsubChar     : efTransfer(@Char(Data),     otf_GetData);
       fsubBoolean  : efTransfer(@Boolean(Data),  otf_GetData);
       fsubYesNo    : efTransfer(@Boolean(Data),  otf_GetData);
-      fsubLongInt  : efTransfer(@NativeInt(Data),otf_GetData);
+      fsubLongInt  : efTransfer(@Integer(Data),  otf_GetData);
       fsubWord     : efTransfer(@Word(Data),     otf_GetData);
       fsubInteger  : efTransfer(@SmallInt(Data), otf_GetData);
       fsubByte     : efTransfer(@Byte(Data),     otf_GetData);
@@ -3450,6 +3523,7 @@ begin
       fsubComp     : efTransfer(@Comp(Data),     otf_GetData);
       fsubDate     : efTransfer(@TStDate(Data),  otf_GetData);
       fsubTime     : efTransfer(@TStTime(Data),  otf_GetData);
+      fsubDateTime : efTransfer(@TDateTime(Data),otf_GetData);
     else
       raise EOvcException.Create(GetOrphStr(SCInvalidParamValue));
     end;
@@ -3692,7 +3766,7 @@ procedure TOvcBaseEntryField.SelectAll;
   {-selects the entire contents of the edit field}
 begin
   if HandleAllocated then
-    Perform(EM_SETSEL, 1, Integer($FFFF0000));
+    Perform(EM_SETSEL, 1, LPARAM($FFFF0000));
 end;
 
 procedure TOvcBaseEntryField.SetAsBoolean(Value : Boolean);
@@ -3777,7 +3851,7 @@ begin
           T := BadTime;
         SetValue(T);
       end;
-    fsubDouble : { = TDateTime }
+    fsubDateTime :
       begin
         SetValue(Value);
       end;
@@ -3906,9 +3980,9 @@ begin
         fsubInteger  : R.rtInt := R.rtLong;
         fsubByte     : R.rtByte := R.rtLong;
         fsubShortInt : R.rtSht := R.rtLong;
-        fsubDouble   : R.rtDbl := R.rtExt;
-        fsubSingle   : R.rtSgl := R.rtExt;
-        fsubComp     : R.rtComp := R.rtExt;
+        fsubDouble   : R.rtDbl := R.Ext;
+        fsubSingle   : R.rtSgl := R.Ext;
+        fsubComp     : R.rtComp := R.Ext;
       end;
       SetValue(R);
     end else
@@ -4186,9 +4260,9 @@ begin
     fsubByte     : efRangeHi.rtLong := Value.rtByte;
     fsubShortInt : efRangeHi.rtLong := Value.rtSht;
     fsubExtended : efRangeHi.rtExt  := Value.rtExt;
-    fsubDouble   : efRangeHi.rtExt  := Value.rtDbl;
-    fsubSingle   : efRangeHi.rtExt  := Value.rtSgl;
-    fsubComp     : efRangeHi.rtExt  := Value.rtComp;
+    fsubDouble   : efRangeHi.Ext  := Value.rtDbl;
+    fsubSingle   : efRangeHi.Ext  := Value.rtSgl;
+    fsubComp     : efRangeHi.Ext  := Value.rtComp;
   else
     efRangeHi := Value;
   end;
@@ -4234,9 +4308,9 @@ begin
     fsubByte     : efRangeLo.rtLong := Value.rtByte;
     fsubShortInt : efRangeLo.rtLong := Value.rtSht;
     fsubExtended : efRangeLo.rtExt  := Value.rtExt;
-    fsubDouble   : efRangeLo.rtExt  := Value.rtDbl;
-    fsubSingle   : efRangeLo.rtExt  := Value.rtSgl;
-    fsubComp     : efRangeLo.rtExt  := Value.rtComp;
+    fsubDouble   : efRangeLo.Ext  := Value.rtDbl;
+    fsubSingle   : efRangeLo.Ext  := Value.rtSgl;
+    fsubComp     : efRangeLo.Ext  := Value.rtComp;
   else
     efRangeLo := Value;
   end;
@@ -4333,7 +4407,7 @@ begin
       fsubChar     : efTransfer(@AnsiChar(Data), otf_SetData);
       fsubBoolean  : efTransfer(@Boolean(Data),  otf_SetData);
       fsubYesNo    : efTransfer(@Boolean(Data),  otf_SetData);
-      fsubLongInt  : efTransfer(@NativeInt(Data),otf_SetData);
+      fsubLongInt  : efTransfer(@Integer(Data),  otf_SetData);
       fsubWord     : efTransfer(@Word(Data),     otf_SetData);
       fsubInteger  : efTransfer(@SmallInt(Data), otf_SetData);
       fsubByte     : efTransfer(@Byte(Data),     otf_SetData);
@@ -4345,6 +4419,7 @@ begin
       fsubComp     : efTransfer(@Comp(Data),     otf_SetData);
       fsubDate     : efTransfer(@TStDate(Data),  otf_SetData);
       fsubTime     : efTransfer(@TStTime(Data),  otf_SetData);
+      fsubdateTime : efTransfer(@TDateTime(Data),otf_SetData);
     else
       raise EOvcException.Create(GetOrphStr(SCInvalidParamValue));
     end;
@@ -4406,7 +4481,7 @@ begin
   end;
 
   if ReportError and (FLastError <> 0) then
-    PostMessage(Handle, om_ReportError, FLastError, 0);
+    PostMessage(Handle, OM_REPORTERROR, WPARAM(FLastError), 0);
 
   {update invalid flag}
   if FLastError = 0 then
@@ -4657,7 +4732,7 @@ var
 begin
   H := Clipboard.GetAsHandle(CF_UNICODETEXT);
   if H <> 0 then begin
-    TMessage(Msg).lParam := Integer(GlobalLock(H));
+    TMessage(Msg).lParam := LPARAM(GlobalLock(H));
     efPerformEdit(TMessage(Msg), ccPaste);
     GlobalUnlock(H);
   end;

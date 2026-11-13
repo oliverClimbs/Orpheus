@@ -36,6 +36,8 @@
 {.W-} {Windows Stack Frame}
 {$X+} {Extended Syntax}
 
+{$DEFINE USE_OLD_VERSION}
+
 {$WARN SYMBOL_DEPRECATED OFF}
 
 unit ovctccbx;
@@ -55,6 +57,7 @@ type
     protected {private}
 
       FCell     : TOvcBaseTableCell;
+      FIsDroppedDown: Boolean;
 
       EditField : HWnd;
       PrevEditWndProc : pointer;
@@ -79,6 +82,8 @@ type
       constructor Create(AOwner : TComponent); override;
       destructor Destroy; override;
       procedure CreateWnd; override;
+      procedure ShowEdit;
+      procedure ShowDropDown;
 
       property CellOwner : TOvcBaseTableCell
          read FCell write FCell;
@@ -102,7 +107,7 @@ type
       read FCell write FCell;
   end;
 
-  TOvcTCComboBoxEdit = class(TCustomControl)
+  TOvcTCComboBoxEditNew = class(TCustomControl)
   private
     FItemIndex: Integer;
     FCell: TOvcBaseTableCell;
@@ -182,6 +187,12 @@ type
     property AutoDropDown: Boolean read FAutoDropDown write SetAutoDropDown;
     property Canvas;
   end;
+
+{$IFDEF USE_OLD_VERSION}
+  TOvcTCComboBoxEdit = TOvcTCComboBoxEditOld;
+{$ELSE}
+  TOvcTCComboBoxEdit = TOvcTCComboBoxEditNew;
+{$ENDIF}
 
   TOvcTCCustomComboBox = class(TOvcTCBaseString)
   protected {private}
@@ -481,6 +492,15 @@ function  TOvcTCComboBoxEditOld.FilterWMKEYDOWN(var Msg : TWMKey) : boolean;
     end;{case}
     Result := GridUsedIt;
   end;
+procedure TOvcTCComboBoxEditOld.ShowDropDown;
+begin
+   DroppedDown := true;
+end;
+
+procedure TOvcTCComboBoxEditOld.ShowEdit;
+begin
+end;
+
 {--------}
 
 
@@ -949,19 +969,24 @@ procedure TOvcTCCustomComboBox.StartEditing(RowNum : TRowNum; ColNum : TColNum;
         case CellStyle of
           tes3D     : FEdit.Ctl3D := true;
         end;{case}
+        FEdit.MaxLength := Self.MaxLength;
+        FEdit.Hint := Self.Hint;
+        FEdit.ShowHint := Self.ShowHint;
+        FEdit.Visible := false;
+        FEdit.CellOwner := Self;
+        FEdit.TabStop := false;
+        FEdit.Parent := FTable;
+        {Font and bounds must be assigned AFTER Parent.  The editor is created
+         unparented, so it is at 96 PPI until then; anything assigned earlier is
+         rescaled when it is parented to a table on a higher-DPI form.
+         TOvcTCBaseEntryField.StartEditing already assigns in this order.}
+        FEdit.Font := CellAttr.caFont;
+        FEdit.Font.Color := CellAttr.caFontColor;
         FEdit.Left := CellRect.Left;
         FEdit.Top := CellRect.Top;
         FEdit.Width := CellRect.Right - CellRect.Left;
         FEdit.Height := CellRect.Bottom - CellRect.Top;
-        FEdit.Font := CellAttr.caFont;
-        FEdit.Font.Color := CellAttr.caFontColor;
-        FEdit.MaxLength := Self.MaxLength;
-        FEdit.Hint := Self.Hint;
-        FEdit.ShowHint := Self.ShowHint;
         FEdit.Visible := true;
-        FEdit.CellOwner := Self;
-        FEdit.TabStop := false;
-        FEdit.Parent := FTable;
         FEdit.DropDownCount := Self.DropDownCount;
         FEdit.Sorted := Self.Sorted;
         FEdit.Style := Self.Style;
@@ -1063,12 +1088,12 @@ procedure TOvcTCCustomComboBox.StopEditing(SaveValue : boolean;
 
 { TOvcTCComboBoxEdit }
 
-procedure TOvcTCComboBoxEdit.CMRelease(var Message: TMessage);
+procedure TOvcTCComboBoxEditNew.CMRelease(var Message: TMessage);
 begin
   Free;
 end;
 
-procedure TOvcTCComboBoxEdit.CMTextChanged(var Message: TMessage);
+procedure TOvcTCComboBoxEditNew.CMTextChanged(var Message: TMessage);
 begin
   case Style of
     csDropDown: if Assigned(FEditControl) then
@@ -1079,7 +1104,7 @@ begin
   end;
 end;
 
-constructor TOvcTCComboBoxEdit.Create(AOwner: TComponent);
+constructor TOvcTCComboBoxEditNew.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
 
@@ -1119,7 +1144,7 @@ begin
 //  autodropdown := true;
 end;
 
-procedure TOvcTCComboBoxEdit.CreateWnd;
+procedure TOvcTCComboBoxEditNew.CreateWnd;
 begin
   inherited;
   if Style = csDropDown then
@@ -1134,19 +1159,19 @@ begin
   end;
 end;
 
-destructor TOvcTCComboBoxEdit.Destroy;
+destructor TOvcTCComboBoxEditNew.Destroy;
 begin
   FreeAndNil(FItems);
   inherited Destroy;
 end;
 
-procedure TOvcTCComboBoxEdit.DestroyWindowHandle;
+procedure TOvcTCComboBoxEditNew.DestroyWindowHandle;
 begin
   FreeAndNil(FEditControl);
   inherited;
 end;
 
-procedure TOvcTCComboBoxEdit.DrawBackground(Canvas: TCanvas;
+procedure TOvcTCComboBoxEditNew.DrawBackground(Canvas: TCanvas;
   const CellRect: TRect; CellAttr: TOvcCellAttributes; Focused: Boolean);
 var
   R: TRect;
@@ -1171,7 +1196,7 @@ begin
   end;
 end;
 
-class procedure TOvcTCComboBoxEdit.DrawButton(Canvas: TCanvas;
+class procedure TOvcTCComboBoxEditNew.DrawButton(Canvas: TCanvas;
   const CellRect: TRect);
 var
   EffCellWidth : Integer;
@@ -1253,7 +1278,7 @@ begin
     end;
 end;
 
-class procedure TOvcTCComboBoxEdit.DrawText(Canvas: TCanvas;
+class procedure TOvcTCComboBoxEditNew.DrawText(Canvas: TCanvas;
   const CellRect: TRect; CellAttr: TOvcCellAttributes; Focused: Boolean;
   AText: string);
 var
@@ -1276,7 +1301,7 @@ begin
   Canvas.TextRect(R, S, [tfVerticalCenter, tfEndEllipsis, tfSingleLine]);
 end;
 
-procedure TOvcTCComboBoxEdit.DropDownClose(Sender: TObject;
+procedure TOvcTCComboBoxEditNew.DropDownClose(Sender: TObject;
   var Action: TCloseAction);
 begin
   FIsDroppedDown := False;
@@ -1286,19 +1311,19 @@ begin
     Windows.SetFocus(FEditControl.Handle);
 end;
 
-procedure TOvcTCComboBoxEdit.EditChanged(Sender: TObject);
+procedure TOvcTCComboBoxEditNew.EditChanged(Sender: TObject);
 begin
   Text := FEditControl.Text;
 end;
 
-procedure TOvcTCComboBoxEdit.ListBoxClick(Sender: TObject);
+procedure TOvcTCComboBoxEditNew.ListBoxClick(Sender: TObject);
 begin
   ItemIndex := FListBox.ItemIndex;
   FDropDown.Close;
   FCloseTime := 0;
 end;
 
-procedure TOvcTCComboBoxEdit.ListBoxMouseMove(Sender: TObject;
+procedure TOvcTCComboBoxEditNew.ListBoxMouseMove(Sender: TObject;
   Shift: TShiftState; X, Y: Integer);
 var
   I: Integer;
@@ -1309,7 +1334,7 @@ begin
       FListBox.Selected[I] := True;
 end;
 
-procedure TOvcTCComboBoxEdit.MouseDown(Button: TMouseButton; Shift: TShiftState;
+procedure TOvcTCComboBoxEditNew.MouseDown(Button: TMouseButton; Shift: TShiftState;
   X, Y: Integer);
 begin
   if ssDouble in Shift then
@@ -1329,7 +1354,7 @@ begin
   inherited MouseDown(Button, Shift, X, Y);
 end;
 
-procedure TOvcTCComboBoxEdit.Paint;
+procedure TOvcTCComboBoxEditNew.Paint;
 var
   LText: string;
   LState: TOwnerDrawState;
@@ -1368,7 +1393,7 @@ begin
   DrawButton(Canvas, ClientRect);
 end;
 
-function TOvcTCComboBoxEdit.SelectItem(const AnItem: string): Boolean;
+function TOvcTCComboBoxEditNew.SelectItem(const AnItem: string): Boolean;
 var
   Idx: Integer;
   ValueChange: Boolean;
@@ -1412,29 +1437,29 @@ begin
   end;
 end;
 
-procedure TOvcTCComboBoxEdit.SetAutoDropDown(const Value: Boolean);
+procedure TOvcTCComboBoxEditNew.SetAutoDropDown(const Value: Boolean);
 begin
   FAutoDropDown := Value;
 end;
 
-procedure TOvcTCComboBoxEdit.SetBounds(ALeft, ATop, AWidth, AHeight: Integer);
+procedure TOvcTCComboBoxEditNew.SetBounds(ALeft, ATop, AWidth, AHeight: Integer);
 begin
   inherited;
   UpdateEditPosition;
 end;
 
-procedure TOvcTCComboBoxEdit.SetCellAttr(const Value: TOvcCellAttributes);
+procedure TOvcTCComboBoxEditNew.SetCellAttr(const Value: TOvcCellAttributes);
 begin
   FCellAttr := Value;
   Invalidate;
 end;
 
-procedure TOvcTCComboBoxEdit.SetDropDownCount(const Value: Integer);
+procedure TOvcTCComboBoxEditNew.SetDropDownCount(const Value: Integer);
 begin
   FDropDownCount := Value;
 end;
 
-procedure TOvcTCComboBoxEdit.SetItemIndex(const Value: Integer);
+procedure TOvcTCComboBoxEditNew.SetItemIndex(const Value: Integer);
 begin
   if FItemIndex <> Value then
   begin
@@ -1452,28 +1477,28 @@ begin
   Invalidate;
 end;
 
-procedure TOvcTCComboBoxEdit.SetItems(const Value: TStrings);
+procedure TOvcTCComboBoxEditNew.SetItems(const Value: TStrings);
 begin
   FItems.Assign(Value);
 end;
 
-procedure TOvcTCComboBoxEdit.SetMaxLength(const Value: Integer);
+procedure TOvcTCComboBoxEditNew.SetMaxLength(const Value: Integer);
 begin
   FMaxLength := Value;
 end;
 
-procedure TOvcTCComboBoxEdit.SetSorted(const Value: Boolean);
+procedure TOvcTCComboBoxEditNew.SetSorted(const Value: Boolean);
 begin
   FSorted := Value;
 end;
 
-procedure TOvcTCComboBoxEdit.SetStyle(const Value: TComboBoxStyle);
+procedure TOvcTCComboBoxEditNew.SetStyle(const Value: TComboBoxStyle);
 begin
   FStyle := Value;
   RecreateWnd;
 end;
 
-procedure TOvcTCComboBoxEdit.ShowDropDown;
+procedure TOvcTCComboBoxEditNew.ShowDropDown;
 var
   P: TPoint;
   I: Integer;
@@ -1518,7 +1543,7 @@ begin
   FIsDroppedDown := True;
 end;
 
-procedure TOvcTCComboBoxEdit.ShowEdit;
+procedure TOvcTCComboBoxEditNew.ShowEdit;
 begin
   if Assigned(FEditControl) then
   begin
@@ -1528,7 +1553,7 @@ begin
   end;
 end;
 
-procedure TOvcTCComboBoxEdit.UpdateEditPosition;
+procedure TOvcTCComboBoxEditNew.UpdateEditPosition;
 begin
   if HandleAllocated and Assigned(FEditControl) then
   begin
@@ -1536,7 +1561,7 @@ begin
   end;
 end;
 
-procedure TOvcTCComboBoxEdit.WMChar(var Msg: TWMKey);
+procedure TOvcTCComboBoxEditNew.WMChar(var Msg: TWMKey);
 var
 //  StartPos, EndPos: Integer;
 //  OldText: string;
@@ -1589,7 +1614,7 @@ begin
   end; // case
 end;
 
-procedure TOvcTCComboBoxEdit.WMKeyDown(var Msg: TWMKey);
+procedure TOvcTCComboBoxEditNew.WMKeyDown(var Msg: TWMKey);
 begin
   inherited;
   if Msg.CharCode = VK_F4 then
@@ -1602,12 +1627,12 @@ begin
   end;
 end;
 
-procedure TOvcTCComboBoxEdit.WMKillFocus(var Msg: TWMKillFocus);
+procedure TOvcTCComboBoxEditNew.WMKillFocus(var Msg: TWMKillFocus);
 begin
-
+   inherited;
 end;
 
-procedure TOvcTCComboBoxEdit.WMSetFocus(var Msg: TWMSetFocus);
+procedure TOvcTCComboBoxEditNew.WMSetFocus(var Msg: TWMSetFocus);
 begin
 //  ShowEdit;
   if Assigned(CellOwner) then
